@@ -1,16 +1,44 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <stdexcept>
+#include <algorithm>
 
 using namespace std;
 
-// HÃ m tÃ­nh Ä‘á»‹nh thá»©c cá»§a ma tráº­n vuÃ´ng (báº±ng phÆ°Æ¡ng phÃ¡p Ä‘á»‡ quy)
+vector<vector<double>> allocated_matrix(int rows, int cols) {
+    return vector<vector<double>>(rows, vector<double>(cols, 0.0));
+}
+
+vector<vector<double>> matrix_multiplication(const vector<vector<double>>& A, const vector<vector<double>>& B) {
+    int rowsA = A.size();
+    int colsA = A[0].size();
+    int colsB = B[0].size();
+
+    vector<vector<double>> result(rowsA, vector<double>(colsB, 0.0));
+
+    for (int i = 0; i < rowsA; ++i) {
+        for (int j = 0; j < colsB; ++j) {
+            for (int k = 0; k < colsA; ++k) {
+                result[i][j] += A[i][k] * B[k][j];
+            }
+        }
+    }
+
+    return result;
+}
+
+// Hàm tính ð?nh th?c c?a ma tr?n vuông
 double determinant(const vector<vector<double>>& matrix, int n) {
-    double det = 0;
     if (n == 1) {
         return matrix[0][0];
     }
 
+    if (n == 2) {
+        return matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0];
+    }
+
+    double det = 0;
     vector<vector<double>> submatrix(n - 1, vector<double>(n - 1));
     int sign = 1;
 
@@ -19,9 +47,7 @@ double determinant(const vector<vector<double>>& matrix, int n) {
         for (int i = 1; i < n; i++) {
             int subj = 0;
             for (int j = 0; j < n; j++) {
-                if (j == x) {
-                    continue;
-                }
+                if (j == x) continue;
                 submatrix[subi][subj] = matrix[i][j];
                 subj++;
             }
@@ -33,25 +59,29 @@ double determinant(const vector<vector<double>>& matrix, int n) {
     return det;
 }
 
-// HÃ m tÃ­nh ma tráº­n nghá»‹ch Ä‘áº£o 2x2
-vector<vector<double>> inverse2x2(const vector<vector<double>>& matrix) {
-    vector<vector<double>> inverse(2, vector<double>(2));
-    double det = determinant(matrix, 2);
+// Hàm tính ma tr?n ngh?ch ð?o 3x3
+vector<vector<double>> inverse3x3(const vector<vector<double>>& matrix) {
+    vector<vector<double>> inverse(3, vector<double>(3));
+    double det = determinant(matrix, 3);
 
     if (det == 0) {
-        cout << "Matrix is singular and cannot be inverted." << endl;
-        exit(0);
+        throw runtime_error("Matrix is singular and cannot be inverted.");
     }
 
-    inverse[0][0] = matrix[1][1] / det;
-    inverse[0][1] = -matrix[0][1] / det;
-    inverse[1][0] = -matrix[1][0] / det;
-    inverse[1][1] = matrix[0][0] / det;
+    inverse[0][0] = (matrix[1][1] * matrix[2][2] - matrix[1][2] * matrix[2][1]) / det;
+    inverse[0][1] = -(matrix[0][1] * matrix[2][2] - matrix[0][2] * matrix[2][1]) / det;
+    inverse[0][2] = (matrix[0][1] * matrix[1][2] - matrix[0][2] * matrix[1][1]) / det;
+    inverse[1][0] = -(matrix[1][0] * matrix[2][2] - matrix[1][2] * matrix[2][0]) / det;
+    inverse[1][1] = (matrix[0][0] * matrix[2][2] - matrix[0][2] * matrix[2][0]) / det;
+    inverse[1][2] = -(matrix[0][0] * matrix[1][2] - matrix[0][2] * matrix[1][0]) / det;
+    inverse[2][0] = (matrix[1][0] * matrix[2][1] - matrix[1][1] * matrix[2][0]) / det;
+    inverse[2][1] = -(matrix[0][0] * matrix[2][1] - matrix[0][1] * matrix[2][0]) / det;
+    inverse[2][2] = (matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]) / det;
 
     return inverse;
 }
 
-// HÃ m nhÃ¢n hai ma tráº­n
+// Hàm nhân hai ma tr?n
 vector<vector<double>> multiplyMatrices(const vector<vector<double>>& A, const vector<vector<double>>& B) {
     vector<vector<double>> result(A.size(), vector<double>(B[0].size(), 0));
     for (int i = 0; i < A.size(); i++) {
@@ -64,107 +94,308 @@ vector<vector<double>> multiplyMatrices(const vector<vector<double>>& A, const v
     return result;
 }
 
-// HÃ m tÃ¬m cÃ¡c giÃ¡ trá»‹ riÃªng cá»§a ma tráº­n (chá»‰ giáº£i cho ma tráº­n 2x2)
-vector<double> findEigenvalues(const vector<vector<double>>& matrix) {
-    vector<double> eigenvalues(2);
-
-    double a = 1;
-    double b = -(matrix[0][0] + matrix[1][1]);
-    double c = matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0];
-
-    double discriminant = b * b - 4 * a * c;
-    if (discriminant >= 0) {
-        eigenvalues[0] = (-b + sqrt(discriminant)) / (2 * a);
-        eigenvalues[1] = (-b - sqrt(discriminant)) / (2 * a);
-    } else {
-        cout << "Eigenvalues are complex numbers, diagonalization is not possible." << endl;
-        exit(0);
-    }
-
-    return eigenvalues;
+// Hàm ki?m tra tính ð?c l?p tuy?n tính c?a vector
+bool areVectorsLinearlyIndependent(const vector<vector<double>>& vectors) {
+    // S? d?ng ð?nh th?c c?a ma tr?n t?o t? các vector
+    double det = determinant(vectors, 3);
+    return fabs(det) > 1e-9;
 }
 
-// HÃ m tÃ¬m vector riÃªng cá»§a ma tráº­n (chá»‰ giáº£i cho ma tráº­n 2x2)
-vector<vector<double>> findEigenvectors(const vector<vector<double>>& matrix, const vector<double>& eigenvalues) {
-    vector<vector<double>> eigenvectors(2, vector<double>(2));
+vector<double> divide_polynomial(const vector<double>& coeffs, double root) {
+    vector<double> result(coeffs.size() - 1);
+    result[0] = coeffs[0];
 
-    for (int i = 0; i < 2; i++) {
+    for (size_t i = 1; i < coeffs.size() - 1; ++i) {
+        result[i] = result[i - 1] * root + coeffs[i];
+    }
+
+    return result;
+}
+
+double newton_raphson(const vector<double>& coeffs, double guess) {
+    double tolerance = 1e-9;
+    double max_iter = 1000;
+    double x = guess;
+    int iter = 0;
+
+    while (iter < max_iter) {
+        double fx = 0;
+        double dfx = 0;
+        
+        // Tính giá tr? c?a ða th?c t?i x
+        for (size_t i = 0; i < coeffs.size(); ++i) {
+            fx += coeffs[i] * pow(x, coeffs.size() - 1 - i);
+        }
+
+        // Tính ð?o hàm c?a ða th?c t?i x
+        for (size_t i = 0; i < coeffs.size() - 1; ++i) {
+            dfx += (coeffs.size() - 1 - i) * coeffs[i] * pow(x, coeffs.size() - 2 - i);
+        }
+
+        if (fabs(dfx) < tolerance) {
+            throw runtime_error("Derivative near zero. Newton-Raphson method failed.");
+        }
+
+        double x_new = x - fx / dfx;
+
+        if (fabs(x_new - x) < tolerance) {
+            return x_new;
+        }
+
+        x = x_new;
+        ++iter;
+    }
+
+    throw runtime_error("Newton-Raphson method did not converge.");
+}
+
+
+// Hàm t?m t?t c? các nghi?m c?a ða th?c
+vector<double> find_all_roots(const vector<double>& coeffs, double initGuesses) {
+    vector<double> roots;
+    vector<double> currentCoeffs = coeffs;
+    while (currentCoeffs.size() > 1) {
+        double root = newton_raphson(currentCoeffs, initGuesses);
+        currentCoeffs = divide_polynomial(currentCoeffs, root);
+        roots.push_back(root);
+    }
+    return roots;
+}
+
+vector<double> danilevsky(const vector<vector<double>>& matrix, vector<vector<double>>& matrixProductM) {
+    int n = matrix.size();
+    vector<vector<double>> A = matrix;
+    vector<vector<double>> M = allocated_matrix(n, n);
+    vector<vector<double>> M_minus1 = allocated_matrix(n, n);
+    vector<vector<double>> B = allocated_matrix(n, n);
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            M[i][j] = 0;
+            M_minus1[i][j] = 0;
+            matrixProductM[i][j] = (i == j) ? 1 : 0;
+        }
+    }
+
+    for (int k = n - 2; k >= 0; --k) {
+        for (int i = 0; i < n; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (i != k) {
+                    M[i][j] = (i == j) ? 1 : 0;
+                    M_minus1[i][j] = 0;
+                } else {
+                    M_minus1[i][j] = A[k + 1][j];
+                    M[i][j] = (j == k) ? 1 / A[k + 1][k] : -A[k + 1][j] / A[k + 1][k];
+                }
+            }
+        }
+        B = matrix_multiplication(A, M);
+        A = matrix_multiplication(M_minus1, B);
+        matrixProductM = matrix_multiplication(matrixProductM, M);
+    }
+
+    vector<double> coeffs(n + 1);
+    coeffs[0] = 1;
+    for (int i = 0; i < n; ++i) {
+        coeffs[i + 1] = -A[0][i];
+    }
+
+    return coeffs;
+}
+
+
+// Hàm t?m ma tr?n P và D
+vector<vector<double>> find_matrix_P(const vector<vector<double>>& matrixA, vector<vector<double>>& matrixD) {
+    int n = matrixA.size();
+    vector<vector<double>> matrixProductM = allocated_matrix(n, n);
+    vector<vector<double>> matrixP = allocated_matrix(n, n);
+
+    vector<double> eigenValues = find_all_roots(danilevsky(matrixA, matrixProductM), -100);
+    
+    for (int i = 0; i < n; ++i) {
+        double eigenValue = eigenValues[i];
+        for (int j = 0; j < n; ++j) {
+            matrixP[j][i] = pow(eigenValue, n - 1 - j);
+            matrixD[i][j] = 0;
+        }
+        matrixD[i][i] = eigenValue;
+    }
+    
+    matrixP = matrix_multiplication(matrixProductM, matrixP);
+    return matrixP;
+}
+
+vector<double> findEigenvalues(const vector<vector<double>>& matrix) {
+    int n = matrix.size();
+    vector<vector<double>> matrixProductM(n, vector<double>(n));
+    vector<double> coeffs = danilevsky(matrix, matrixProductM);
+    return find_all_roots(coeffs, 0.0);
+}
+
+
+// Hàm gi?i h? phýõng tr?nh tuy?n tính
+vector<double> solveLinearSystem(const vector<vector<double>>& A, const vector<double>& b) {
+    // S? d?ng phýõng pháp gi?i h? phýõng tr?nh, ví d?: phýõng pháp Gauss
+    int n = A.size();
+    vector<vector<double>> augmented(n, vector<double>(n + 1));
+    vector<double> x(n);
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            augmented[i][j] = A[i][j];
+        }
+        augmented[i][n] = b[i];
+    }
+
+    for (int i = 0; i < n; ++i) {
+        int maxRow = i;
+        for (int k = i + 1; k < n; ++k) {
+            if (fabs(augmented[k][i]) > fabs(augmented[maxRow][i])) {
+                maxRow = k;
+            }
+        }
+
+        swap(augmented[i], augmented[maxRow]);
+
+        for (int k = i + 1; k < n; ++k) {
+            double factor = augmented[k][i] / augmented[i][i];
+            for (int j = i; j <= n; ++j) {
+                augmented[k][j] -= factor * augmented[i][j];
+            }
+        }
+    }
+
+    for (int i = n - 1; i >= 0; --i) {
+        x[i] = augmented[i][n] / augmented[i][i];
+        for (int k = i - 1; k >= 0; --k) {
+            augmented[k][n] -= augmented[k][i] * x[i];
+        }
+    }
+
+    return x;
+}
+
+vector<vector<double>> findEigenvectors(const vector<vector<double>>& matrix, const vector<double>& eigenvalues) {
+    int n = matrix.size();
+    vector<vector<double>> eigenvectors(n, vector<double>(n));
+
+    for (size_t i = 0; i < eigenvalues.size(); ++i) {
         double lambda = eigenvalues[i];
-        eigenvectors[i][0] = matrix[0][1];
-        eigenvectors[i][1] = lambda - matrix[0][0];
+        vector<vector<double>> A = matrix;
+        
+        // Tr? ma tr?n ?I
+        for (int j = 0; j < n; ++j) {
+            A[j][j] -= lambda;
+        }
+
+        // Gi?i h? phýõng tr?nh (A - ?I)x = 0 ð? t?m vector eigen
+        vector<double> b(n, 0.0);
+        b[i] = 1; // Ch?n vector b[i] làm vector không nông
+        vector<double> x = solveLinearSystem(A, b);
+
+        for (int j = 0; j < n; ++j) {
+            eigenvectors[j][i] = x[j];
+        }
     }
 
     return eigenvectors;
 }
 
-// HÃ m in ma tráº­n
-void printMatrix(const vector<vector<double>>& matrix) {
-    for (int i = 0; i < matrix.size(); i++) {
-        for (int j = 0; j < matrix[i].size(); j++) {
-            cout << matrix[i][j] << " ";
-        }
-        cout << endl;
-    }
-}
-
 int main() {
     vector<vector<double>> matrix = {
-        {4, 1},
-        {2, 3}
+        {2, 1, 0},
+        {1, 3, 1},
+        {0, 1, 2}
     };
 
     cout << "Original matrix:" << endl;
-    printMatrix(matrix);
+    for (const auto& row : matrix) {
+        for (double value : row) {
+            cout << value << " ";
+        }
+        cout << endl;
+    }
 
-    // BÆ°á»›c 1: TÃ¬m cÃ¡c giÃ¡ trá»‹ riÃªng
+    // Bý?c 1: T?m các giá tr? riêng
     vector<double> eigenvalues = findEigenvalues(matrix);
 
-    cout << "Eigenvalues: " << eigenvalues[0] << ", " << eigenvalues[1] << endl;
+    cout << "Eigenvalues: " << eigenvalues[0] << ", " << eigenvalues[1] << ", " << eigenvalues[2] << endl;
 
-    // BÆ°á»›c 2: TÃ¬m vector riÃªng
+    // Bý?c 2: T?m vector riêng
     vector<vector<double>> eigenvectors = findEigenvectors(matrix, eigenvalues);
 
     cout << "Eigenvectors:" << endl;
-    printMatrix(eigenvectors);
+    for (const auto& row : eigenvectors) {
+        for (double value : row) {
+            cout << value << " ";
+        }
+        cout << endl;
+    }
 
-    // BÆ°á»›c 3: XÃ¢y dá»±ng ma tráº­n P vÃ  D
+    // Bý?c 3: Xây d?ng ma tr?n P và D
     vector<vector<double>> P = eigenvectors;
     vector<vector<double>> D = {
-        {eigenvalues[0], 0},
-        {0, eigenvalues[1]}
+        {eigenvalues[0], 0, 0},
+        {0, eigenvalues[1], 0},
+        {0, 0, eigenvalues[2]}
     };
 
     cout << "Matrix P (eigenvectors):" << endl;
-    printMatrix(P);
-
-    cout << "Matrix D (diagonal matrix):" << endl;
-    printMatrix(D);
-
-    // BÆ°á»›c 4: TÃ­nh ma tráº­n P^-1
-    vector<vector<double>> P_inv = inverse2x2(P);
-
-    // BÆ°á»›c 5: Kiá»ƒm tra láº¡i P^-1 * A * P = D
-    vector<vector<double>> P_inv_AP = multiplyMatrices(P_inv, multiplyMatrices(matrix, P));
-
-    cout << "Matrix P^-1 * A * P:" << endl;
-    printMatrix(P_inv_AP);
-
-    cout << "Matrix D (diagonal matrix):" << endl;
-    printMatrix(D);
-
-    // So sÃ¡nh P_inv_AP vá»›i D
-    bool isEqual = true;
-    for (int i = 0; i < D.size(); i++) {
-        for (int j = 0; j < D[i].size(); j++) {
-            if (abs(P_inv_AP[i][j] - D[i][j]) > 1e-9) {
-                isEqual = false;
-                break;
-            }
+    for (const auto& row : P) {
+        for (double value : row) {
+            cout << value << " ";
         }
-        if (!isEqual) break;
+        cout << endl;
     }
 
-    cout << "Verification of P^-1 * A * P = D: " << (isEqual ? "Correct" : "Incorrect") << endl;
+    cout << "Matrix D (diagonal matrix):" << endl;
+    for (const auto& row : D) {
+        for (double value : row) {
+            cout << value << " ";
+        }
+        cout << endl;
+    }
+
+    try {
+        // Bý?c 4: Tính ma tr?n P^-1
+        vector<vector<double>> P_inv = inverse3x3(P);
+
+        // Bý?c 5: Ki?m tra l?i P^-1 * A * P = D
+        vector<vector<double>> P_inv_AP = multiplyMatrices(P_inv, multiplyMatrices(matrix, P));
+
+        cout << "Matrix P^-1 * A * P:" << endl;
+        for (const auto& row : P_inv_AP) {
+            for (double value : row) {
+                cout << value << " ";
+            }
+            cout << endl;
+        }
+
+        cout << "Matrix D (diagonal matrix):" << endl;
+        for (const auto& row : D) {
+            for (double value : row) {
+                cout << value << " ";
+            }
+            cout << endl;
+        }
+
+        // So sánh P_inv_AP v?i D
+        bool isEqual = true;
+        for (int i = 0; i < D.size(); i++) {
+            for (int j = 0; j < D[i].size(); j++) {
+                if (fabs(P_inv_AP[i][j] - D[i][j]) > 1e-9) {
+                    isEqual = false;
+                    break;
+                }
+            }
+            if (!isEqual) break;
+        }
+
+        cout << "Verification of P^-1 * A * P = D: " << (isEqual ? "Correct" : "Incorrect") << endl;
+    } catch (const runtime_error& e) {
+        cout << e.what() << endl;
+    }
 
     return 0;
 }
+
